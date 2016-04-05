@@ -65,8 +65,7 @@ In the result of search you get the following columns:
 | Job Order        | ???                       |
 | Cert             | ???                       |
 
-`ID` gives you ability to get direct link to submitted certification document:
-Here is the code sample:
+`ID` gives you ability to get direct link to submitted certification document. Here is the code sample:
 ```ruby
 # Sample of the URL to get the document
 icert_document_url = "https://icert.doleta.gov/index.cfm?event=ehLCJRExternal.dspCert&visa_class_id=#{visa_class_id}&id=#{response_row_id}"
