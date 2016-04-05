@@ -4,7 +4,7 @@ Ruby script to track Department of Labor cases.
 
 ## Installation
 
-[Download and install Ruby.](https://www.ruby-lang.org/en/documentation/installation/ "Ruby install documentation").
+[Download and install Ruby](https://www.ruby-lang.org/en/documentation/installation/ "Ruby install documentation").
 
 ## Usage
 
