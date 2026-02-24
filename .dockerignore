@@ -1,0 +1,8 @@
+.git
+spec/
+plans/
+todos/
+*.md
+.rspec
+.ruby-version
+.claude/

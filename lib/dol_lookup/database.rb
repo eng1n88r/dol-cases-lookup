@@ -11,6 +11,8 @@ module DolLookup
       received_date decision_date visa_class prevailing_wage
     ].freeze
 
+    WAGE_FILTER = "wage_from IS NOT NULL AND wage_from != '' AND CAST(wage_from AS REAL) > 0"
+
     attr_reader :db_path
 
     def initialize(program:, year:, quarter:)
@@ -35,8 +37,164 @@ module DolLookup
       close
     end
 
-    def query(filters = {})
+    def import_with_progress(xlsx_path, &on_progress)
+      tmp_path = "#{@db_path}.tmp"
+      File.delete(tmp_path) if File.exist?(tmp_path)
+
+      original_db_path = @db_path
+      @db_path = tmp_path
+      begin
+        open_db
+        create_table
+
+        parser = Parser.new(xlsx_path, program: @program)
+        placeholders = COLUMNS.map { "?" }.join(", ")
+        col_list = COLUMNS.join(", ")
+        insert_sql = "INSERT INTO cases (#{col_list}) VALUES (#{placeholders})"
+
+        batch = []
+        total_rows = 0
+        parser.each_row do |row|
+          values = COLUMNS.map { |col| row[@column_map[col]]&.to_s }
+          batch << values
+          total_rows += 1
+
+          if batch.size >= BATCH_SIZE
+            flush_batch(insert_sql, batch)
+            batch.clear
+            on_progress&.call(total_rows)
+          end
+        end
+        flush_batch(insert_sql, batch) unless batch.empty?
+        on_progress&.call(total_rows)
+
+        create_indexes
+        close
+
+        # Atomic rename on success
+        File.delete(original_db_path) if File.exist?(original_db_path)
+        File.rename(tmp_path, original_db_path)
+        @db_path = original_db_path
+      rescue => e
+        close
+        File.delete(tmp_path) if File.exist?(tmp_path)
+        @db_path = original_db_path
+        raise
+      end
+    end
+
+    def query(filters = nil, limit: nil, offset: nil, **filter_kwargs)
+      filters = filters || filter_kwargs
       open_db
+      where_clauses, params = build_where(filters)
+
+      sql = "SELECT * FROM cases"
+      sql += " WHERE #{where_clauses.join(' AND ')}" unless where_clauses.empty?
+      sql += " LIMIT #{limit.to_i}" if limit
+      sql += " OFFSET #{offset.to_i}" if offset
+
+      rows = @db.execute(sql, params)
+      translate_rows(rows)
+    ensure
+      close
+    end
+
+    def count(filters = nil, **filter_kwargs)
+      filters = filters || filter_kwargs
+      open_db
+      where_clauses, params = build_where(filters)
+      sql = "SELECT COUNT(*) FROM cases"
+      sql += " WHERE #{where_clauses.join(' AND ')}" unless where_clauses.empty?
+      @db.get_first_value(sql, params).to_i
+    ensure
+      close
+    end
+
+    def stats(filters = nil, **filter_kwargs)
+      filters = filters || filter_kwargs
+      open_db
+      where_clauses, params = build_where(filters)
+      where_sql = where_clauses.empty? ? "" : " AND #{where_clauses.join(' AND ')}"
+
+      summary = @db.get_first_row(<<~SQL, params)
+        SELECT
+          COUNT(*) AS total_cases,
+          ROUND(MIN(CAST(wage_from AS REAL)), 0) AS min_wage,
+          ROUND(MAX(CAST(wage_from AS REAL)), 0) AS max_wage,
+          ROUND(AVG(CAST(wage_from AS REAL)), 0) AS avg_wage,
+          ROUND(median(CAST(wage_from AS REAL)), 0) AS median_wage
+        FROM cases
+        WHERE #{WAGE_FILTER}#{where_sql}
+      SQL
+
+      histogram = @db.execute(<<~SQL, params)
+        SELECT
+          CASE
+            WHEN CAST(wage_from AS REAL) < 50000 THEN 'Under $50k'
+            WHEN CAST(wage_from AS REAL) < 75000 THEN '$50k-$75k'
+            WHEN CAST(wage_from AS REAL) < 100000 THEN '$75k-$100k'
+            WHEN CAST(wage_from AS REAL) < 125000 THEN '$100k-$125k'
+            WHEN CAST(wage_from AS REAL) < 150000 THEN '$125k-$150k'
+            WHEN CAST(wage_from AS REAL) < 200000 THEN '$150k-$200k'
+            ELSE '$200k+'
+          END AS wage_range,
+          COUNT(*) AS case_count
+        FROM cases
+        WHERE #{WAGE_FILTER}#{where_sql}
+        GROUP BY wage_range
+        ORDER BY MIN(CAST(wage_from AS REAL))
+      SQL
+
+      by_status = @db.execute(<<~SQL, params)
+        SELECT case_status, COUNT(*) AS count
+        FROM cases
+        WHERE 1=1#{where_sql}
+        GROUP BY case_status
+        ORDER BY count DESC
+      SQL
+
+      {
+        summary: summary,
+        histogram: histogram.map { |r| { "wage_range" => r[0], "case_count" => r[1] } },
+        by_status: by_status.map { |r| { "case_status" => r[0], "count" => r[1] } }
+      }
+    ensure
+      close
+    end
+
+    def top_employers(filters = nil, limit: 25, **filter_kwargs)
+      filters = filters || filter_kwargs
+      open_db
+      where_clauses, params = build_where(filters)
+      where_sql = where_clauses.empty? ? "" : " AND #{where_clauses.join(' AND ')}"
+
+      rows = @db.execute(<<~SQL, params + [limit])
+        SELECT
+          employer_name,
+          COUNT(*) AS case_count,
+          SUM(CASE WHEN case_status = 'Certified' THEN 1 ELSE 0 END) AS certified,
+          ROUND(AVG(CAST(wage_from AS REAL)), 0) AS avg_wage,
+          ROUND(median(CAST(wage_from AS REAL)), 0) AS median_wage
+        FROM cases
+        WHERE #{WAGE_FILTER}#{where_sql}
+        GROUP BY employer_name
+        ORDER BY case_count DESC
+        LIMIT ?
+      SQL
+
+      rows.map do |r|
+        {
+          "employer_name" => r[0], "case_count" => r[1], "certified" => r[2],
+          "avg_wage" => r[3], "median_wage" => r[4]
+        }
+      end
+    ensure
+      close
+    end
+
+    private
+
+    def build_where(filters)
       where_clauses = []
       params = []
 
@@ -46,18 +204,13 @@ module DolLookup
       end
 
       if filters[:employer]
-        where_clauses << "employer_name LIKE ? COLLATE NOCASE"
-        params << "%#{filters[:employer]}%"
+        where_clauses << "employer_name LIKE ? ESCAPE '\\' COLLATE NOCASE"
+        params << "%#{sanitize_like(filters[:employer])}%"
       end
 
       if filters[:job_title]
-        where_clauses << "job_title LIKE ? COLLATE NOCASE"
-        params << "%#{filters[:job_title]}%"
-      end
-
-      if filters[:state]
-        where_clauses << "(worksite_state = ?1 COLLATE NOCASE OR employer_state = ?1 COLLATE NOCASE)"
-        # numbered param — need special handling
+        where_clauses << "job_title LIKE ? ESCAPE '\\' COLLATE NOCASE"
+        params << "%#{sanitize_like(filters[:job_title])}%"
       end
 
       if filters[:status]
@@ -70,21 +223,21 @@ module DolLookup
         params << filters[:visa_class]
       end
 
-      # Re-build for state since it uses a single param in two places
       if filters[:state]
-        # Rebuild without numbered params — use OR with same value twice
-        where_clauses.delete_if { |c| c.include?("worksite_state") }
         where_clauses << "(worksite_state = ? COLLATE NOCASE OR employer_state = ? COLLATE NOCASE)"
         params << filters[:state]
         params << filters[:state]
       end
 
-      sql = "SELECT * FROM cases"
-      sql += " WHERE #{where_clauses.join(' AND ')}" unless where_clauses.empty?
+      [where_clauses, params]
+    end
 
-      rows = @db.execute(sql, params)
+    def sanitize_like(value)
+      value.gsub(/[%_\\]/) { |c| "\\#{c}" }
+    end
+
+    def translate_rows(rows)
       col_names = COLUMNS.map(&:to_s)
-
       rows.map do |row|
         hash = {}
         col_names.each_with_index do |col, idx|
@@ -93,11 +246,7 @@ module DolLookup
         end
         hash
       end
-    ensure
-      close
     end
-
-    private
 
     def open_db
       @db = SQLite3::Database.new(@db_path)
@@ -131,6 +280,7 @@ module DolLookup
       @db.execute("CREATE INDEX IF NOT EXISTS idx_employer_state ON cases(employer_state)")
       @db.execute("CREATE INDEX IF NOT EXISTS idx_visa_class ON cases(visa_class)")
       @db.execute("CREATE INDEX IF NOT EXISTS idx_job_title ON cases(job_title COLLATE NOCASE)")
+      @db.execute("CREATE INDEX IF NOT EXISTS idx_wage_from_real ON cases(CAST(wage_from AS REAL)) WHERE wage_from IS NOT NULL AND wage_from != ''")
     end
 
     def insert_rows(xlsx_path)

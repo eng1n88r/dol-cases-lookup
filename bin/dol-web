@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+require_relative "../lib/dol_lookup"
+require_relative "../lib/dol_lookup/web"
+
+port = Integer(ENV.fetch("PORT", 9292))
+puts "DOL Cases Dashboard: http://localhost:#{port}"
+DolLookup::Web.run!(port: port, bind: "127.0.0.1", server: "puma")
