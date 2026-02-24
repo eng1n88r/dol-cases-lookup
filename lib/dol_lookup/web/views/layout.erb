@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DOL Cases Dashboard</title>
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    integrity="sha384-L1dWfspMTHU/ApYnFiMz2QID/PlP1xCW9visvBdbEkOLkSSWsP6ZJWhPw6apiXxU"
+    crossorigin="anonymous">
+  <script
+    src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"
+    integrity="sha384-/TgkGk7p307TH7EXJDuUlgG3Ce1UVolAOFopFekQkkXihi5u/6OCvVKyz1W+idaz"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/htmx-ext-sse@2.2.4/sse.js"
+    integrity="sha384-QA9wXqexhwzXTuTvuF5QP82pddm3R2hy81UzXi7ioNTqNF2b75hlkkSGjafohhL3"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/chart.js@4"
+    integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ"
+    crossorigin="anonymous"></script>
+  <script>Chart.defaults.color = '#c2c7d0';</script>
+  <link rel="stylesheet" href="/css/app.css">
+  <%== csrf_meta_tag %>
+</head>
+<body>
+  <nav class="container">
+    <ul><li><a href="/"><strong>DOL Cases Dashboard</strong></a></li></ul>
+    <ul>
+      <li><a href="/">Dashboard</a></li>
+      <li><a href="/import">Import Data</a></li>
+    </ul>
+  </nav>
+  <main class="container">
+    <%== yield %>
+  </main>
+  <footer class="container">
+    <small>Data source: <a href="https://www.dol.gov/agencies/eta/foreign-labor/performance">DOL OFLC Disclosure Data</a></small>
+  </footer>
+  <script>
+    document.body.addEventListener('htmx:configRequest', function(evt) {
+      var token = document.querySelector('meta[name="csrf-token"]');
+      if (token) { evt.detail.headers['X-CSRF-Token'] = token.content; }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<% if @error %>
+<article aria-label="error">
+  <p><%= @error %></p>
+</article>
+<% end %>
+
+<section id="search-section">
+  <h2>Search Cases</h2>
+  <form hx-get="/search" hx-target="#results-area" hx-indicator="#search-spinner">
+    <div class="grid">
+      <label>
+        Program
+        <select name="program" id="program-select">
+          <% (DolLookup::Config::PROGRAMS).each do |key, info| %>
+            <option value="<%= key %>" <%= 'selected' if (@program || 'lca') == key %>><%= info[:prefix] %> - <%= info[:description] %></option>
+          <% end %>
+        </select>
+      </label>
+      <label>
+        Year
+        <input type="number" name="year" value="<%= @year || DolLookup::Config::DEFAULT_YEAR %>" min="2020" max="<%= Time.now.year + 1 %>">
+      </label>
+      <label>
+        Quarter
+        <select name="quarter">
+          <% (1..4).each do |q| %>
+            <option value="<%= q %>" <%= 'selected' if (@quarter || current_quarter) == q %>>Q<%= q %></option>
+          <% end %>
+        </select>
+      </label>
+    </div>
+    <div class="grid">
+      <label>
+        Employer
+        <input type="text" name="employer" value="<%= @filters&.dig(:employer) %>" placeholder="e.g. Google">
+      </label>
+      <label>
+        Job Title
+        <input type="text" name="job_title" value="<%= @filters&.dig(:job_title) %>" placeholder="e.g. Software Engineer">
+      </label>
+      <label>
+        State
+        <input type="text" name="state" value="<%= @filters&.dig(:state) %>" placeholder="e.g. CA" maxlength="2">
+      </label>
+    </div>
+    <div class="grid">
+      <label>
+        Status
+        <select name="status">
+          <option value="">All</option>
+          <option value="Certified" <%= 'selected' if @filters&.dig(:status) == 'Certified' %>>Certified</option>
+          <option value="Denied" <%= 'selected' if @filters&.dig(:status) == 'Denied' %>>Denied</option>
+          <option value="Withdrawn" <%= 'selected' if @filters&.dig(:status) == 'Withdrawn' %>>Withdrawn</option>
+          <option value="Certified - Withdrawn" <%= 'selected' if @filters&.dig(:status) == 'Certified - Withdrawn' %>>Certified - Withdrawn</option>
+        </select>
+      </label>
+      <label>
+        Visa Class
+        <input type="text" name="visa_class" value="<%= @filters&.dig(:visa_class) %>" placeholder="e.g. H-1B">
+      </label>
+      <label>
+        Case Number
+        <input type="text" name="case_number" value="<%= @filters&.dig(:case_number) %>" placeholder="e.g. I-200-12345-678901">
+      </label>
+    </div>
+    <button type="submit">
+      <span id="search-spinner" class="htmx-indicator" aria-busy="true"></span>
+      Search
+    </button>
+  </form>
+</section>
+
+<div id="results-area">
+  <% if @results %>
+    <%== erb(:_results, layout: false) %>
+  <% end %>
+</div>
+
+<% if @datasets && !@datasets.empty? %>
+<section id="datasets-section">
+  <h2>Imported Datasets</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Program</th>
+        <th>Year</th>
+        <th>Quarter</th>
+        <th>Size</th>
+        <th>Imported</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @datasets.each do |ds| %>
+        <tr>
+          <td><%= ds[:program].upcase %></td>
+          <td><%= ds[:year] %></td>
+          <td>Q<%= ds[:quarter] %></td>
+          <td><%= (ds[:size] / 1024.0 / 1024.0).round(1) %> MB</td>
+          <td><%= ds[:imported_at].strftime('%Y-%m-%d %H:%M') %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</section>
+<% else %>
+<article class="empty-state">
+  <h3>No Data Imported Yet</h3>
+  <p>Import DOL OFLC disclosure data to start searching visa certification cases (H-1B, PERM, H-2A, H-2B).</p>
+  <a href="/import" role="button">Import Data</a>
+</article>
+<% end %>

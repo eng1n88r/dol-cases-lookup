@@ -1,0 +1,46 @@
+services:
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:9292:9292"
+    volumes:
+      - dol-data:/data
+    environment:
+      - DOL_LOOKUP_CACHE_DIR=/data
+      - RACK_ENV=production
+      - SESSION_SECRET=${SESSION_SECRET-}
+    env_file:
+      - path: .env
+        required: false
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    restart: unless-stopped
+
+  # Test profile: seeds fixture data and exposes app for Playwright
+  web-test:
+    build: .
+    ports:
+      - "127.0.0.1:9292:9292"
+    volumes:
+      - ./spec/fixtures:/fixtures:ro
+      - ./spec/e2e:/e2e:ro
+    environment:
+      - DOL_LOOKUP_CACHE_DIR=/data
+      - RACK_ENV=production
+      - SESSION_SECRET=e2e-test-session-secret-that-is-long-enough-to-satisfy-the-64-char-minimum-requirement
+    entrypoint: >
+      sh -c "ruby /e2e/seed_data.rb && bundle exec puma -b tcp://0.0.0.0:9292 -e production"
+    profiles:
+      - test
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+volumes:
+  dol-data:
+    driver: local

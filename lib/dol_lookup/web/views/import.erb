@@ -1,0 +1,35 @@
+<h2>Import Data</h2>
+<p>Download and import DOL OFLC quarterly disclosure data into the local database.</p>
+
+<form hx-post="/import/start" hx-target="#import-status" hx-swap="innerHTML">
+  <%== csrf_tag %>
+  <div class="grid">
+    <label>
+      Program
+      <select name="program">
+        <% DolLookup::Config::PROGRAMS.each do |key, info| %>
+          <option value="<%= key %>"><%= info[:prefix] %> - <%= info[:description] %></option>
+        <% end %>
+      </select>
+    </label>
+    <label>
+      Year
+      <input type="number" name="year" value="<%= DolLookup::Config::DEFAULT_YEAR %>" min="2020" max="<%= Time.now.year + 1 %>">
+    </label>
+    <label>
+      Quarter
+      <select name="quarter">
+        <% (1..4).each do |q| %>
+          <option value="<%= q %>" <%= 'selected' if current_quarter == q %>>Q<%= q %></option>
+        <% end %>
+      </select>
+    </label>
+  </div>
+  <label>
+    <input type="checkbox" name="refresh" value="true">
+    Force re-download (even if cached)
+  </label>
+  <button type="submit">Start Import</button>
+</form>
+
+<div id="import-status"></div>

@@ -1,0 +1,200 @@
+<% if @error %>
+<article aria-label="error">
+  <p><%= @error %></p>
+  <p><a href="/import">Go to Import page</a></p>
+</article>
+<% elsif @results %>
+
+<% if !@results.empty? && @stats && @stats[:summary] %>
+<div id="stats-area">
+  <div class="grid">
+    <article>
+      <header>Total Cases</header>
+      <p class="stat-number"><%= format_number(@stats[:summary][0]) %></p>
+    </article>
+    <article>
+      <header>Avg Wage</header>
+      <p class="stat-number"><%= format_wage(@stats[:summary][3]) %></p>
+    </article>
+    <article>
+      <header>Median Wage</header>
+      <p class="stat-number"><%= format_wage(@stats[:summary][4]) %></p>
+    </article>
+    <article>
+      <header>Min Wage</header>
+      <p class="stat-number"><%= format_wage(@stats[:summary][1]) %></p>
+    </article>
+    <article>
+      <header>Max Wage</header>
+      <p class="stat-number"><%= format_wage(@stats[:summary][2]) %></p>
+    </article>
+  </div>
+</div>
+<% end %>
+
+<% if !@results.empty? && @stats && @stats[:histogram] && !@stats[:histogram].empty? %>
+<div class="grid">
+  <article>
+    <header>Wage Distribution</header>
+    <canvas id="wage-chart" height="200"></canvas>
+  </article>
+  <article>
+    <header>Case Status Breakdown</header>
+    <canvas id="status-chart" height="200"></canvas>
+  </article>
+</div>
+<script>
+  (function() {
+    // Wage histogram
+    var wageCtx = document.getElementById('wage-chart');
+    if (wageCtx && wageCtx.getContext) {
+      if (wageCtx._chart) wageCtx._chart.destroy();
+      wageCtx._chart = new Chart(wageCtx.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: <%== @stats[:histogram].map { |h| h["wage_range"] }.to_json %>,
+          datasets: [{
+            label: 'Cases',
+            data: <%== @stats[:histogram].map { |h| h["case_count"] }.to_json %>,
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+      });
+    }
+    // Status doughnut
+    var statusCtx = document.getElementById('status-chart');
+    if (statusCtx && statusCtx.getContext) {
+      if (statusCtx._chart) statusCtx._chart.destroy();
+      var statusColors = {
+        'Certified': 'rgba(75, 192, 192, 0.7)',
+        'Denied': 'rgba(255, 99, 132, 0.7)',
+        'Withdrawn': 'rgba(255, 205, 86, 0.7)',
+        'Certified - Withdrawn': 'rgba(153, 102, 255, 0.7)'
+      };
+      var labels = <%== @stats[:by_status].map { |s| s["case_status"] }.to_json %>;
+      var colors = labels.map(function(l) { return statusColors[l] || 'rgba(201, 203, 207, 0.7)'; });
+      statusCtx._chart = new Chart(statusCtx.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: <%== @stats[:by_status].map { |s| s["count"] }.to_json %>,
+            backgroundColor: colors
+          }]
+        },
+        options: { responsive: true }
+      });
+    }
+  })();
+</script>
+<% end %>
+
+<% if @top_employers && !@top_employers.empty? %>
+<article>
+  <header>Top Employers</header>
+  <canvas id="employers-chart" height="300"></canvas>
+</article>
+<script>
+  (function() {
+    var ectx = document.getElementById('employers-chart');
+    if (ectx && ectx.getContext) {
+      if (ectx._chart) ectx._chart.destroy();
+      ectx._chart = new Chart(ectx.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: <%== @top_employers.map { |e| e["employer_name"] }.to_json %>,
+          datasets: [{
+            label: 'Cases',
+            data: <%== @top_employers.map { |e| e["case_count"] }.to_json %>,
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { beginAtZero: true, ticks: { precision: 0 } },
+            y: { grid: { display: false } }
+          }
+        }
+      });
+    }
+  })();
+</script>
+<% end %>
+
+<h3>
+  Results
+  <% if @total %>
+    <small>(<%= format_number(@total) %> total<% if @total > @per_page %>, page <%= @page %> of <%= ((@total - 1) / @per_page) + 1 %><% end %>)</small>
+  <% end %>
+</h3>
+
+<% if @results.empty? %>
+  <p>No results found matching your filters.</p>
+<% else %>
+  <figure>
+    <table role="grid">
+      <thead>
+        <tr>
+          <th>Case Number</th>
+          <th>Status</th>
+          <th>Employer</th>
+          <th>Job Title</th>
+          <th>City</th>
+          <th>State</th>
+          <th>Wage</th>
+          <th>Visa Class</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @results.each do |row| %>
+          <tr>
+            <td><%= row["CASE_NUMBER"] || row[DolLookup::ColumnMap.columns_for(@program)[:case_number]] %></td>
+            <td><%= row["CASE_STATUS"] || row[DolLookup::ColumnMap.columns_for(@program)[:case_status]] %></td>
+            <td><%= row["EMPLOYER_NAME"] || row[DolLookup::ColumnMap.columns_for(@program)[:employer_name]] %></td>
+            <td><%= row["JOB_TITLE"] || row[DolLookup::ColumnMap.columns_for(@program)[:job_title]] %></td>
+            <td><%= row["WORKSITE_CITY"] || row[DolLookup::ColumnMap.columns_for(@program)[:worksite_city]] %></td>
+            <td><%= row["WORKSITE_STATE"] || row[DolLookup::ColumnMap.columns_for(@program)[:worksite_state]] %></td>
+            <td><%= format_wage(row["WAGE_RATE_OF_PAY_FROM"] || row[DolLookup::ColumnMap.columns_for(@program)[:wage_from]]) %></td>
+            <td><%= row["VISA_CLASS"] || row[DolLookup::ColumnMap.columns_for(@program)[:visa_class]] %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </figure>
+
+  <% if @total && @total > @per_page %>
+    <nav aria-label="Pagination">
+      <ul>
+        <% if @page > 1 %>
+          <li>
+            <a href="#"
+              hx-get="/search?<%= Rack::Utils.build_query(@filters.merge(program: @program, year: @year, quarter: @quarter, page: @page - 1)) %>"
+              hx-target="#results-area">&laquo; Previous</a>
+          </li>
+        <% end %>
+        <li><span>Page <%= @page %> of <%= ((@total - 1) / @per_page) + 1 %></span></li>
+        <% if @page * @per_page < @total %>
+          <li>
+            <a href="#"
+              hx-get="/search?<%= Rack::Utils.build_query(@filters.merge(program: @program, year: @year, quarter: @quarter, page: @page + 1)) %>"
+              hx-target="#results-area">Next &raquo;</a>
+          </li>
+        <% end %>
+      </ul>
+    </nav>
+  <% end %>
+<% end %>
+
+<% end %>

@@ -1,4 +1,4 @@
-require "creek"
+require_relative "xlsx_reader"
 
 module DolLookup
   class Parser
@@ -13,13 +13,12 @@ module DolLookup
     def each_row(&block)
       return enum_for(:each_row) unless block_given?
 
-      creek = Creek::Book.new(@file_path)
-      sheet = creek.sheets.first
+      reader = XlsxReader.new(@file_path)
 
       headers = nil
       wanted_indices = nil # col letter => semantic field
 
-      sheet.rows.each do |row|
+      reader.each_row do |row|
         if headers.nil?
           headers = row.transform_values { |v| v.to_s.strip }
           wanted_indices = build_index(headers)
@@ -28,14 +27,12 @@ module DolLookup
 
         record = {}
         wanted_indices.each do |cell_letter, xlsx_header|
-          cell_key = row.keys.find { |k| k.match?(/\A#{cell_letter}\d+\z/) }
+          cell_key = row.keys.find { |k| k.start_with?(cell_letter) && k[cell_letter.length..].match?(/\A\d+\z/) }
           value = cell_key ? row[cell_key] : nil
           record[xlsx_header] = value.is_a?(String) ? value.strip : value&.to_s
         end
         yield record
       end
-    ensure
-      creek&.close if creek.respond_to?(:close)
     end
 
     private

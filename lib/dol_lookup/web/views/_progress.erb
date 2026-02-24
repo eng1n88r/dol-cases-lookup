@@ -1,0 +1,40 @@
+<article>
+  <header>Importing <%= program.upcase %> FY<%= year %> Q<%= quarter %></header>
+  <div id="progress-content">
+    <p aria-busy="true">Starting import...</p>
+  </div>
+</article>
+<script>
+  (function() {
+    var source = new EventSource('/import/progress/<%= key %>');
+    var el = document.getElementById('progress-content');
+
+    source.addEventListener('progress', function(evt) {
+      try {
+        var data = JSON.parse(evt.data);
+        if (data.status === 'running') {
+          if (data.phase === 'downloading') {
+            el.innerHTML = '<p aria-busy="true">Downloading XLSX file...</p>';
+          } else if (data.phase === 'importing') {
+            var rows = data.rows || 0;
+            el.innerHTML = '<p aria-busy="true">Importing rows: ' + rows.toLocaleString() + '...</p>';
+          }
+        } else if (data.status === 'complete') {
+          el.innerHTML = '<p>Import complete! <a href="/">Go to Dashboard</a></p>';
+          source.close();
+        } else if (data.status === 'error') {
+          el.innerHTML = '<p><strong>Error:</strong> ' + (data.error || 'Unknown error') + '</p>';
+          source.close();
+        }
+      } catch(e) {}
+    });
+
+    source.addEventListener('done', function() {
+      source.close();
+    });
+
+    source.onerror = function() {
+      source.close();
+    };
+  })();
+</script>
