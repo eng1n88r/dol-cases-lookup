@@ -16,22 +16,23 @@ module DolLookup
       reader = XlsxReader.new(@file_path)
 
       headers = nil
-      wanted_indices = nil # col letter => semantic field
+      wanted_letters = nil # col letter => xlsx header
 
       reader.each_row do |row|
         if headers.nil?
           headers = row.transform_values { |v| v.to_s.strip }
-          wanted_indices = build_index(headers)
+          wanted_letters = build_index(headers)
           next
         end
 
         record = {}
-        wanted_indices.each do |cell_letter, xlsx_header|
-          cell_key = row.keys.find { |k| k.start_with?(cell_letter) && k[cell_letter.length..].match?(/\A\d+\z/) }
-          value = cell_key ? row[cell_key] : nil
+        row.each do |cell_ref, value|
+          col_letter = cell_ref.delete("0-9")
+          xlsx_header = wanted_letters[col_letter]
+          next unless xlsx_header
           record[xlsx_header] = value.is_a?(String) ? value.strip : value&.to_s
         end
-        yield record
+        yield record unless record.empty?
       end
     end
 
@@ -43,7 +44,7 @@ module DolLookup
       wanted_headers = @columns.values.to_set
       index = {}
       header_row.each do |cell_ref, header_value|
-        col_letter = cell_ref.gsub(/\d+/, "")
+        col_letter = cell_ref.delete("0-9")
         index[col_letter] = header_value if wanted_headers.include?(header_value)
       end
       index
