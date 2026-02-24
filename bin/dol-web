@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+RubyVM::YJIT.enable rescue nil
+
 require_relative "../lib/dol_lookup"
 require_relative "../lib/dol_lookup/web"
 

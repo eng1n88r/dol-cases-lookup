@@ -2,7 +2,7 @@ require "sqlite3"
 
 module DolLookup
   class Database
-    BATCH_SIZE = 1000
+    BATCH_SIZE = 5_000
 
     COLUMNS = %i[
       case_number case_status employer_name trade_name
@@ -44,30 +44,9 @@ module DolLookup
       original_db_path = @db_path
       @db_path = tmp_path
       begin
-        open_db
+        open_db_for_import
         create_table
-
-        parser = Parser.new(xlsx_path, program: @program)
-        placeholders = COLUMNS.map { "?" }.join(", ")
-        col_list = COLUMNS.join(", ")
-        insert_sql = "INSERT INTO cases (#{col_list}) VALUES (#{placeholders})"
-
-        batch = []
-        total_rows = 0
-        parser.each_row do |row|
-          values = COLUMNS.map { |col| row[@column_map[col]]&.to_s }
-          batch << values
-          total_rows += 1
-
-          if batch.size >= BATCH_SIZE
-            flush_batch(insert_sql, batch)
-            batch.clear
-            on_progress&.call(total_rows)
-          end
-        end
-        flush_batch(insert_sql, batch) unless batch.empty?
-        on_progress&.call(total_rows)
-
+        insert_rows(xlsx_path, &on_progress)
         create_indexes
         close
 
@@ -254,6 +233,17 @@ module DolLookup
       @db.execute("PRAGMA synchronous=NORMAL")
     end
 
+    # Aggressive PRAGMAs for bulk import — safe because import writes to
+    # a .db.tmp file that is atomically renamed on success or deleted on failure.
+    def open_db_for_import
+      @db = SQLite3::Database.new(@db_path)
+      @db.execute("PRAGMA journal_mode=OFF")
+      @db.execute("PRAGMA synchronous=OFF")
+      @db.execute("PRAGMA temp_store=MEMORY")
+      @db.execute("PRAGMA cache_size=-64000")
+      @db.execute("PRAGMA locking_mode=EXCLUSIVE")
+    end
+
     def close
       @db&.close
       @db = nil
@@ -283,28 +273,35 @@ module DolLookup
       @db.execute("CREATE INDEX IF NOT EXISTS idx_wage_from_real ON cases(CAST(wage_from AS REAL)) WHERE wage_from IS NOT NULL AND wage_from != ''")
     end
 
-    def insert_rows(xlsx_path)
+    def insert_rows(xlsx_path, &on_progress)
       parser = Parser.new(xlsx_path, program: @program)
       placeholders = COLUMNS.map { "?" }.join(", ")
       col_list = COLUMNS.join(", ")
-      insert_sql = "INSERT INTO cases (#{col_list}) VALUES (#{placeholders})"
+      sql = "INSERT INTO cases (#{col_list}) VALUES (#{placeholders})"
 
+      stmt = @db.prepare(sql)
       batch = []
+      count = 0
       parser.each_row do |row|
         values = COLUMNS.map { |col| row[@column_map[col]]&.to_s }
         batch << values
+        count += 1
 
         if batch.size >= BATCH_SIZE
-          flush_batch(insert_sql, batch)
+          flush_batch(stmt, batch)
           batch.clear
+          on_progress&.call(count)
         end
       end
-      flush_batch(insert_sql, batch) unless batch.empty?
+      flush_batch(stmt, batch) unless batch.empty?
+      on_progress&.call(count)
+    ensure
+      stmt&.close rescue nil
     end
 
-    def flush_batch(sql, batch)
+    def flush_batch(stmt, batch)
       @db.transaction do
-        batch.each { |values| @db.execute(sql, values) }
+        batch.each { |values| stmt.execute(values) }
       end
     end
   end
