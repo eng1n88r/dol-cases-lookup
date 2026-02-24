@@ -17,8 +17,8 @@ test.describe("Dashboard page load", () => {
       nav.getByRole("link", { name: "Import Data" })
     ).toBeVisible();
 
-    // Search section
-    await expect(page.locator("h2", { hasText: "Search Cases" })).toBeVisible();
+    // Search form
+    await expect(page.locator("#program-select")).toBeVisible();
 
     // Form fields
     await expect(page.locator("#program-select")).toBeVisible();
@@ -45,7 +45,7 @@ test.describe("Import page", () => {
     await page.goto("/import");
 
     await expect(
-      page.locator("h2", { hasText: "Import Data" })
+      page.locator(".section-heading", { hasText: "Import Data" })
     ).toBeVisible();
 
     // Program, Year, Quarter fields
@@ -101,8 +101,8 @@ test.describe("Search - with results", () => {
 
     const resultsArea = page.locator("#results-area");
 
-    // Stats cards
-    await expect(resultsArea.locator("#stats-area")).toBeVisible({
+    // Stats strip
+    await expect(resultsArea.locator(".stats-strip")).toBeVisible({
       timeout: 10_000,
     });
     await expect(resultsArea).toContainText("Total Cases");
@@ -158,7 +158,7 @@ test.describe("Search - filter by employer", () => {
     }
 
     // Results count shown
-    await expect(resultsArea.locator("h3")).toContainText(/total/i);
+    await expect(resultsArea.locator(".results-header")).toContainText(/total/i);
   });
 });
 

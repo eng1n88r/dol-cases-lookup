@@ -30,7 +30,7 @@ RSpec.describe DolLookup::Web do
       get "/"
       expect(last_response.status).to eq(200)
       expect(last_response.body).to include("DOL Cases Dashboard")
-      expect(last_response.body).to include("Search Cases")
+      expect(last_response.body).to include("program-select")
     end
 
     it "lists imported datasets" do

@@ -5,7 +5,6 @@
 <% end %>
 
 <section id="search-section">
-  <h2>Search Cases</h2>
   <form hx-get="/search" hx-target="#results-area" hx-indicator="#search-spinner">
     <div class="grid">
       <label>
@@ -28,15 +27,9 @@
           <% end %>
         </select>
       </label>
-    </div>
-    <div class="grid">
       <label>
         Employer
         <input type="text" name="employer" value="<%= @filters&.dig(:employer) %>" placeholder="e.g. Google">
-      </label>
-      <label>
-        Job Title
-        <input type="text" name="job_title" value="<%= @filters&.dig(:job_title) %>" placeholder="e.g. Software Engineer">
       </label>
       <label>
         State
@@ -44,6 +37,10 @@
       </label>
     </div>
     <div class="grid">
+      <label>
+        Job Title
+        <input type="text" name="job_title" value="<%= @filters&.dig(:job_title) %>" placeholder="e.g. Software Engineer">
+      </label>
       <label>
         Status
         <select name="status">
@@ -62,11 +59,13 @@
         Case Number
         <input type="text" name="case_number" value="<%= @filters&.dig(:case_number) %>" placeholder="e.g. I-200-12345-678901">
       </label>
+      <div class="search-btn-cell">
+        <button type="submit">
+          <span id="search-spinner" class="htmx-indicator" aria-busy="true"></span>
+          Search
+        </button>
+      </div>
     </div>
-    <button type="submit">
-      <span id="search-spinner" class="htmx-indicator" aria-busy="true"></span>
-      Search
-    </button>
   </form>
 </section>
 
@@ -78,7 +77,7 @@
 
 <% if @datasets && !@datasets.empty? %>
 <section id="datasets-section">
-  <h2>Imported Datasets</h2>
+  <div class="section-heading">Imported Datasets</div>
   <table>
     <thead>
       <tr>
@@ -104,8 +103,8 @@
 </section>
 <% else %>
 <article class="empty-state">
-  <h3>No Data Imported Yet</h3>
-  <p>Import DOL OFLC disclosure data to start searching visa certification cases (H-1B, PERM, H-2A, H-2B).</p>
+  <p>No Data Imported Yet</p>
+  <p>Import DOL OFLC disclosure data to start searching.</p>
   <a href="/import" role="button">Import Data</a>
 </article>
 <% end %>

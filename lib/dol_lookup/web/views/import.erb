@@ -1,5 +1,4 @@
-<h2>Import Data</h2>
-<p>Download and import DOL OFLC quarterly disclosure data into the local database.</p>
+<div class="section-heading">Import Data</div>
 
 <form hx-post="/import/start" hx-target="#import-status" hx-swap="innerHTML">
   <%== csrf_tag %>
@@ -24,12 +23,14 @@
         <% end %>
       </select>
     </label>
+    <div class="search-btn-cell">
+      <button type="submit">Start Import</button>
+    </div>
   </div>
   <label>
     <input type="checkbox" name="refresh" value="true">
-    Force re-download (even if cached)
+    Force re-download
   </label>
-  <button type="submit">Start Import</button>
 </form>
 
 <div id="import-status"></div>

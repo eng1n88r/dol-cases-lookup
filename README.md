@@ -34,14 +34,15 @@ Open [http://localhost:9292](http://localhost:9292) in your browser.
 
 ### Features
 
-- **Dark theme** — Pico CSS v2 dark mode with Chart.js dark palette
-- **Wage analytics** — total cases, average/median/min/max wages, wage distribution histogram
+- **Compact dark theme** — Pico CSS v2 dark mode with dense layout and Chart.js dark palette
+- **Wage analytics** — stats strip with total cases, average/median/min/max wages, wage distribution histogram
 - **Case status breakdown** — doughnut chart of certified/denied/withdrawn
 - **Top employers chart** — horizontal bar chart of employers by case count
-- **Real-time import progress** — SSE-powered progress updates during data import
-- **htmx search** — partial page updates without full reloads
+- **Real-time import progress** — SSE-powered progress with animated spinner during data import
+- **htmx search** — partial page updates without full reloads, 9 filter fields in a 2-row grid
 - **Empty state guidance** — prompts first-time users to import data
 - **Security** — CSRF protection, security headers, optional HTTP Basic Auth, SRI on all CDN resources
+- **E2E tested** — 12 Playwright tests covering search, charts, htmx, pagination, security headers, and CSRF
 
 ### Environment Variables
 
@@ -153,6 +154,12 @@ ruby spec/generate_fixtures.rb
 ```
 
 ## Changelog
+
+### 3.1.0
+
+- **Compact UI overhaul** — dense 2-row search form, stats strip, compact charts, reduced spacing via Pico CSS variable overrides
+- **Import spinner fix** — reuse DOM element during SSE progress updates so `aria-busy` spinner animation is not interrupted
+- **Playwright E2E tests** — 12 tests covering dashboard, import, search, charts, htmx partials, pagination, security headers, and CSRF
 
 ### 3.0.0
 

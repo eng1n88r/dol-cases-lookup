@@ -13,11 +13,19 @@
       try {
         var data = JSON.parse(evt.data);
         if (data.status === 'running') {
+          // Reuse existing <p> so aria-busy spinner animation is not interrupted
+          var p = el.querySelector('p[aria-busy]');
+          if (!p) {
+            p = document.createElement('p');
+            p.setAttribute('aria-busy', 'true');
+            el.innerHTML = '';
+            el.appendChild(p);
+          }
           if (data.phase === 'downloading') {
-            el.innerHTML = '<p aria-busy="true">Downloading XLSX file...</p>';
+            p.textContent = 'Downloading XLSX file...';
           } else if (data.phase === 'importing') {
             var rows = data.rows || 0;
-            el.innerHTML = '<p aria-busy="true">Importing rows: ' + rows.toLocaleString() + '...</p>';
+            p.textContent = 'Importing rows: ' + rows.toLocaleString() + '...';
           }
         } else if (data.status === 'complete') {
           el.innerHTML = '<p>Import complete! <a href="/">Go to Dashboard</a></p>';

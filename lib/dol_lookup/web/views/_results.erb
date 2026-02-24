@@ -6,42 +6,31 @@
 <% elsif @results %>
 
 <% if !@results.empty? && @stats && @stats[:summary] %>
-<div id="stats-area">
-  <div class="grid">
-    <article>
-      <header>Total Cases</header>
-      <p class="stat-number"><%= format_number(@stats[:summary][0]) %></p>
-    </article>
-    <article>
-      <header>Avg Wage</header>
-      <p class="stat-number"><%= format_wage(@stats[:summary][3]) %></p>
-    </article>
-    <article>
-      <header>Median Wage</header>
-      <p class="stat-number"><%= format_wage(@stats[:summary][4]) %></p>
-    </article>
-    <article>
-      <header>Min Wage</header>
-      <p class="stat-number"><%= format_wage(@stats[:summary][1]) %></p>
-    </article>
-    <article>
-      <header>Max Wage</header>
-      <p class="stat-number"><%= format_wage(@stats[:summary][2]) %></p>
-    </article>
-  </div>
+<div class="stats-strip">
+  <div class="stat"><span class="stat-label">Total Cases</span><span class="stat-value"><%= format_number(@stats[:summary][0]) %></span></div>
+  <div class="stat"><span class="stat-label">Avg Wage</span><span class="stat-value"><%= format_wage(@stats[:summary][3]) %></span></div>
+  <div class="stat"><span class="stat-label">Median Wage</span><span class="stat-value"><%= format_wage(@stats[:summary][4]) %></span></div>
+  <div class="stat"><span class="stat-label">Min Wage</span><span class="stat-value"><%= format_wage(@stats[:summary][1]) %></span></div>
+  <div class="stat"><span class="stat-label">Max Wage</span><span class="stat-value"><%= format_wage(@stats[:summary][2]) %></span></div>
 </div>
 <% end %>
 
 <% if !@results.empty? && @stats && @stats[:histogram] && !@stats[:histogram].empty? %>
-<div class="grid">
-  <article>
-    <header>Wage Distribution</header>
-    <canvas id="wage-chart" height="200"></canvas>
-  </article>
-  <article>
-    <header>Case Status Breakdown</header>
-    <canvas id="status-chart" height="200"></canvas>
-  </article>
+<div class="grid charts-row">
+  <div class="chart-box">
+    <div class="chart-title">Wage Distribution</div>
+    <canvas id="wage-chart" height="180"></canvas>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Case Status</div>
+    <canvas id="status-chart" height="180"></canvas>
+  </div>
+  <% if @top_employers && !@top_employers.empty? %>
+  <div class="chart-box">
+    <div class="chart-title">Top Employers</div>
+    <canvas id="employers-chart" height="180"></canvas>
+  </div>
+  <% end %>
 </div>
 <script>
   (function() {
@@ -63,6 +52,8 @@
         },
         options: {
           responsive: true,
+
+          layout: { padding: 4 },
           plugins: { legend: { display: false } },
           scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
         }
@@ -89,20 +80,10 @@
             backgroundColor: colors
           }]
         },
-        options: { responsive: true }
+        options: { responsive: true, layout: { padding: 4 } }
       });
     }
-  })();
-</script>
-<% end %>
-
-<% if @top_employers && !@top_employers.empty? %>
-<article>
-  <header>Top Employers</header>
-  <canvas id="employers-chart" height="300"></canvas>
-</article>
-<script>
-  (function() {
+    // Top employers
     var ectx = document.getElementById('employers-chart');
     if (ectx && ectx.getContext) {
       if (ectx._chart) ectx._chart.destroy();
@@ -121,6 +102,8 @@
         options: {
           indexAxis: 'y',
           responsive: true,
+
+          layout: { padding: 4 },
           plugins: { legend: { display: false } },
           scales: {
             x: { beginAtZero: true, ticks: { precision: 0 } },
@@ -133,12 +116,12 @@
 </script>
 <% end %>
 
-<h3>
-  Results
+<div class="results-header">
+  <span>Results</span>
   <% if @total %>
-    <small>(<%= format_number(@total) %> total<% if @total > @per_page %>, page <%= @page %> of <%= ((@total - 1) / @per_page) + 1 %><% end %>)</small>
+    <span class="results-meta"><%= format_number(@total) %> total<% if @total > @per_page %> &middot; page <%= @page %>/<%= ((@total - 1) / @per_page) + 1 %><% end %></span>
   <% end %>
-</h3>
+</div>
 
 <% if @results.empty? %>
   <p>No results found matching your filters.</p>
@@ -181,10 +164,10 @@
           <li>
             <a href="#"
               hx-get="/search?<%= Rack::Utils.build_query(@filters.merge(program: @program, year: @year, quarter: @quarter, page: @page - 1)) %>"
-              hx-target="#results-area">&laquo; Previous</a>
+              hx-target="#results-area">&laquo; Prev</a>
           </li>
         <% end %>
-        <li><span>Page <%= @page %> of <%= ((@total - 1) / @per_page) + 1 %></span></li>
+        <li><span><%= @page %>/<%= ((@total - 1) / @per_page) + 1 %></span></li>
         <% if @page * @per_page < @total %>
           <li>
             <a href="#"
