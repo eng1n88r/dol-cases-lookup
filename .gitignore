@@ -1,0 +1,15 @@
+/.bundle/
+/vendor/bundle
+Gemfile.lock
+*.gem
+*.rbc
+/.config
+/coverage/
+/pkg/
+/tmp/
+/.yardoc
+/_yardoc/
+/doc/
+/rdoc/
+/.byebug_history
+.DS_Store
