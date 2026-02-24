@@ -18,7 +18,60 @@ cd dol-cases-lookup
 bundle install
 ```
 
-## Usage
+## Web Dashboard
+
+Interactive dark-themed dashboard with search, wage analytics, and real-time import progress.
+
+```bash
+# Start locally
+bin/dol-web
+
+# Or with Docker
+docker compose up -d
+```
+
+Open [http://localhost:9292](http://localhost:9292) in your browser.
+
+### Features
+
+- **Dark theme** — Pico CSS v2 dark mode with Chart.js dark palette
+- **Wage analytics** — total cases, average/median/min/max wages, wage distribution histogram
+- **Case status breakdown** — doughnut chart of certified/denied/withdrawn
+- **Top employers chart** — horizontal bar chart of employers by case count
+- **Real-time import progress** — SSE-powered progress updates during data import
+- **htmx search** — partial page updates without full reloads
+- **Empty state guidance** — prompts first-time users to import data
+- **Security** — CSRF protection, security headers, optional HTTP Basic Auth, SRI on all CDN resources
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DOL_LOOKUP_CACHE_DIR` | Cache directory for XLSX + SQLite files | `~/.dol_lookup/cache/` |
+| `PORT` | Web server port | `9292` |
+| `SESSION_SECRET` | Session secret for CSRF tokens (min 64 chars) | Auto-generated |
+| `DOL_AUTH_USER` | HTTP Basic Auth username (enables auth when set) | — |
+| `DOL_AUTH_PASS` | HTTP Basic Auth password | — |
+
+### Docker
+
+```bash
+# Build and start
+docker compose up -d
+
+# Use CLI inside container
+docker compose exec web bin/dol-lookup --employer Google
+
+# Stop (data persists in volume)
+docker compose down
+
+# Stop and destroy data
+docker compose down -v
+```
+
+Data is stored in a Docker volume (`dol-data`). The container runs with a 512MB memory limit.
+
+## CLI Usage
 
 ```bash
 # Search H-1B (LCA) cases by employer
@@ -89,10 +142,37 @@ Data files are downloaded from `https://www.dol.gov/sites/dolgov/files/ETA/oflc/
 ## Development
 
 ```bash
+# Run all tests
 bundle exec rspec
+
+# Run a single test file
+bundle exec rspec spec/unit/web_spec.rb
+
+# Regenerate XLSX test fixtures
+ruby spec/generate_fixtures.rb
 ```
 
-## History
+## Changelog
 
-- 2.0.0 — Rewrite to use OFLC disclosure data (XLSX files) instead of decommissioned iCERT API
-- 1.0.0 — Initial implementation using iCERT API
+### 3.0.0
+
+- **Web dashboard** — Sinatra-based interactive UI with dark theme (Pico CSS v2)
+- **Wage analytics** — summary stats, wage distribution histogram, case status doughnut chart
+- **Top employers chart** — horizontal bar chart showing employers by case volume
+- **Real-time import** — SSE progress updates via native EventSource during XLSX import
+- **htmx search** — partial page updates with pagination, filters, and live results
+- **Empty state** — guides first-time users to the import page when no data is loaded
+- **Docker support** — `docker compose up -d` with persistent data volume and 512MB memory limit
+- **Security hardened** — CSRF protection, SRI integrity on CDN resources, security headers, optional HTTP Basic Auth
+
+### 2.1.0
+
+- **SAX XLSX parser** — replaced Creek with custom `XlsxReader` using Nokogiri SAX + rubyzip for streaming XLSX parsing directly from zip; reduced import memory from >4GB to ~84MB for 900K-row files
+
+### 2.0.0
+
+- Rewrite to use OFLC disclosure data (XLSX files) instead of decommissioned iCERT API
+
+### 1.0.0
+
+- Initial implementation using iCERT API
